@@ -2,6 +2,7 @@
 
 var User = require('../models/user');
 var bcrypt = require('bcrypt-nodejs');
+var jwt = require('../services/jwt')
 
 function fnHome(req, res){
     res.status(200).send({
@@ -59,8 +60,40 @@ function saveUser(req, res){
     }
 }
 
+function loginUser(req, res){
+    var params = req.body;
+    var email = params.email;
+    var pass = params.password;
+    User.findOne({email: email}, (err, user) => {
+        if(err) return res.status(500).send({message: 'Error en la petición'});
+        if(user){
+            bcrypt.compare(pass, user.password, (err, check) => {
+                if(check){
+                    if(params.gettoken){
+                        return res.status(200).send({
+                            token: jwt.createToken(user)
+                        })
+
+                    } else {
+                        user.password = undefined;
+                    }
+                    
+                    return res.status(200).send({user});
+                } else {
+                    return res.status(404).send({message: 'Contraseña inválida'});
+                }
+            })
+        } else {
+            return res.status(404).send({message: 'Usuario no encontrado'});
+        }
+    });
+
+    
+}
+
 module.exports = {
     fnHome,
     fnPruebas,
-    saveUser
+    saveUser,
+    loginUser
 }
