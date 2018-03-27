@@ -2,7 +2,8 @@
 
 var User = require('../models/user');
 var bcrypt = require('bcrypt-nodejs');
-var jwt = require('../services/jwt')
+var jwt = require('../services/jwt');
+var mongoosePaginate = require('mongoose-pagination');
 
 function fnHome(req, res){
     res.status(200).send({
@@ -91,9 +92,40 @@ function loginUser(req, res){
     
 }
 
+
+function getUser(req, res){
+    var userId = req.params.id;
+    User.findById(userId, (err, user) => {
+        if(err) return res.status(500).send({message: 'Error en la petición'});
+
+        if(!user) return res.status(404).send({message: 'Usuario no existe'});
+
+        return res.status(200).send({user});
+    });
+}
+
+function getUsers(req, res){
+    var identityUserId = req.user.id;//es el id del usuario logeado que lo saco del middleware md_auth...
+    var page = 1;
+    if(req.params.page){
+        page = req.params.page;
+    }
+
+    var itemsPerPage = 5;
+    User.find().sort('_id').paginate(page, itemsPerPage, (err, users, total) => {
+        if(err) return res.status(500).send({message: 'Error en la petición'});
+        if(!users) return res.status(404).send({message: 'no existen usuarios'});
+        return res.status(200).send({
+            users, total, pages: Math.ceil(total / itemsPerPage)
+        });
+    })
+}
+
 module.exports = {
     fnHome,
     fnPruebas,
     saveUser,
-    loginUser
+    loginUser,
+    getUser,
+    getUsers
 }
