@@ -4,6 +4,8 @@ var User = require('../models/user');
 var bcrypt = require('bcrypt-nodejs');
 var jwt = require('../services/jwt');
 var mongoosePaginate = require('mongoose-pagination');
+var fs = require('fs');
+var path = require('path');
 
 function fnHome(req, res){
     res.status(200).send({
@@ -121,11 +123,89 @@ function getUsers(req, res){
     })
 }
 
+function updateUser(req, res){
+    var userId = req.params.id;
+    var userVO = req.body;
+    delete userVO.password;
+
+    if(userId != req.user.sub){
+        return res.status(500).send({message: 'No autorizado'});
+    }
+
+    User.findByIdAndUpdate(userId, userVO, {new: true}, (err, userUpdated) => { //{new: true} --> son las opciones de update y con new: true indico que retorne el objeto nuevo
+        if(err) return res.status(500).send({message: 'Error en la petición'});
+
+        if(!userUpdated) return res.status(404).send({message: 'Usuario no existe'});
+
+        return res.status(200).send({user: userUpdated});//es el objeto original si no se agrega {new: true}
+        
+    });
+}
+
+
+function uploadImage(req, res){
+    var userId = req.params.id;
+    
+    var userVO = req.body;
+    delete userVO.password;
+
+    if(req.files && req.files.image){
+        var file_path = req.files.image.path;
+        var file_split = file_path.split('\\');
+        console.log(file_split);
+
+        var file_name = file_split[2];
+        console.log(file_name);
+        var extSplit = file_name.split('\.')[1];
+        if(userId != req.user.sub){
+            return removeFilesOfUploads(file_path, 'Archivo no cargado');
+            
+            
+        }
+        if(extSplit == 'png' || extSplit == 'jpg' || extSplit == 'jpeg' || extSplit == 'gif'){
+            User.findByIdAndUpdate(userId, {image: file_name}, {new: true}, (err, userUpdated) => { //{new: true} --> son las opciones de update y con new: true indico que retorne el objeto nuevo
+                if(err) return res.status(500).send({message: 'Error en la petición'});
+        
+                if(!userUpdated) return res.status(404).send({message: 'Usuario no existe'});
+        
+                return res.status(200).send({user: userUpdated});//es el objeto original si no se agrega {new: true}
+            });
+        } else {
+            return removeFilesOfUploads(file_path, 'Extension no valida');
+        }
+    } else {
+        return res.status(200).send({message: "No ha cargado archivo"});
+    }
+
+}    
+
+function removeFilesOfUploads(file_path, message){
+    fs.unlink(file_path, (err) => {
+        return res.status(200).send({message});
+    })
+}
+
+function getImageFile(req, res){
+    var imageFile = req.params.imageFile;
+    var pathFile = './uploads/users/' + imageFile;
+
+    fs.exists(pathFile, (exists) => {
+        if(exists){
+            res.sendFile(path.resolve(pathFile));
+        } else {
+            res.status(200).send({message: 'no existe la imagen'});
+        }
+    });
+}
+
 module.exports = {
     fnHome,
     fnPruebas,
     saveUser,
     loginUser,
     getUser,
-    getUsers
+    getUsers,
+    updateUser,
+    uploadImage,
+    getImageFile
 }
