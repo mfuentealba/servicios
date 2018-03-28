@@ -88,9 +88,30 @@ function getFollowedUsers(req, res){
 }
 
 
+function getMyFollow(req, res){
+    var userId = req.user.sub;//es el id del usuario logeado que lo saco del middleware md_auth...
+   
+
+    var find = Follow.find({user: userId});
+
+    if(req.params.followed){
+        find = Follow.find({followed: userId});
+    }
+
+    find.populate('user').exec( (err, follows) => {//{path: 'followed'}
+        if(err) return res.status(500).send({message: 'Error en la petición'});
+        if(!follows || follows.length < 1) return res.status(404).send({message: 'no te sigue nadie'});
+        return res.status(200).send({follows});
+    })
+}
+
+
+
+
 module.exports = {
     saveFollow,
     deleteFollow,
     getFollowingUsers,
-    getFollowedUsers
+    getFollowedUsers,
+    getMyFollow
 }

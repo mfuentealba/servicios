@@ -1,6 +1,7 @@
 'use strict'
 
 var User = require('../models/user');
+var Follow = require('../models/follow');
 var bcrypt = require('bcrypt-nodejs');
 var jwt = require('../services/jwt');
 var mongoosePaginate = require('mongoose-pagination');
@@ -102,8 +103,39 @@ function getUser(req, res){
 
         if(!user) return res.status(404).send({message: 'Usuario no existe'});
 
-        return res.status(200).send({user});
+        
+
+        followThisUser(req.params.id, userId).then((value) => {
+            return res.status(200).send({
+                user,
+                following: value.following,
+                followed: value.followed
+            })
+        });
     });
+
+
+}
+
+async function followThisUser(identityUserId, userId){
+    var following = await Follow.findOne({"user": identityUserId, 'followed': userId}).exec().then((follow) => {
+        
+        return follow;
+    }).catch((err)=>{
+        return handleerror(err);
+    });
+
+    var followed = await Follow.findOne({"user": userId, 'followed': identityUserId}).exec().then((follow) => {
+        
+        return follow;
+    }).catch((err)=>{
+        return handleerror(err);
+    });
+
+    return {
+        followed: followed,
+        following: following
+    }
 }
 
 function getUsers(req, res){
