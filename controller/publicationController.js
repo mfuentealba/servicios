@@ -1,70 +1,174 @@
 'use strict'
 
-var User = require('../models/user');
-var Follow = require('../models/follow');
 var Publication = require('../models/publication');
-var bcrypt = require('bcrypt-nodejs');
-var jwt = require('../services/jwt');
-var mongoosePaginate = require('mongoose-pagination');
+var User = require('../models/user');
 var fs = require('fs');
 var path = require('path');
+var mongoosePaginate = require('mongoose-pagination');
+var moment = require('moment');
+var Follow = require('../models/follow');
 
-function fnHome(req, res){
-    res.status(200).send({
-        message: 'hola mundo'
-    })
-}
 
-function fnPruebas(req, res) {
-    console.log(req.body);
-    console.log(req);
-    res.status(200).send({
-        
-        message: 'hola'
-    })
-}
+var bcrypt = require('bcrypt-nodejs');
+var jwt = require('../services/jwt');
 
-function saveUser(req, res){
+
+
+function savePublication(req, res){
     var params = req.body;
-    var userVO = new User();
-    if(params.name && params.surname && params.nick && params.email && params.password){
-        userVO.name = params.name;
-        userVO.surname = params.surname;
-        userVO.nick = params.nick;
-        userVO.email = params.email;
-        userVO.role = 'USUARIO_NORMAL';
-        userVO.image = null;
-
-        User.find({$or: [
-            {email: userVO.email.toLowerCase()},
-            {nick: userVO.nick.toLowerCase()}
-        ]}).exec((err, users) => {
-            if(err) return res.status(500).send({message: "error en la peticion"})
-            if(users && users.length > 0){
-                return res.status(200).send({message: 'usuario existente'});
-            } else {
-                bcrypt.hash(params.password, null, null, (err, hash) => {
-                    userVO.password =hash;
-                    userVO.save((err, userStore) => {
-                        if(err) return res.status(500).send({message: "error al crear usuario"});
-                        if(userStore){
-                            res.status(200).send({user: userStore});
-                        } else {
-                            res.status(404).send("No se ha registrado el usuario, vuelva a intentar");
-                        }
-                    })
-                });
-            }
-        });
-        
-        
-    } else {
-        res.status(200).send({
-            message: 'Completar campos requeridos'
-        });
-    }
+    
+    if(!params.text) return res.status(200).send({
+        message: 'Completar campos requeridos'
+    });
+    var publicationVO = new Publication();
+    publicationVO.text = params.text;
+    publicationVO.file = null;
+    publicationVO.user = req.user.sub;
+    publicationVO.created_at = moment().unix();
+    
+    publicationVO.save((err, publicationStore) => {
+        if(err) return res.status(500).send({message: "error al guardar publicacion"});
+        if(publicationStore){
+            res.status(200).send({publication: publicationStore});
+        } else {
+            res.status(404).send("La publicación no ha podido ser guardada. Intente nuevamente");
+        }
+    })   
 }
 
+
+function getPublications(req, res){
+    var page = 1;
+    if(req.params.page){
+        page = req.params.page;
+    }
+
+    var itemsPerPage = 4;
+
+    Follow.find({user: req.user.sub}).populate('followed').exec().then((follows) => {
+        var followsClean = [];
+        follows.forEach((follow) => {
+            followsClean.push(follow.followed);
+        });
+        Publication.find({user: {"$in": followsClean}}).sort('-created_at').populate('user').paginate(page, itemsPerPage, (err, publications, total) => {
+            if(err) return res.status(500).send({message: 'Error devolver publicaciones'});
+            if(!publications || publications.length < 1){
+                return res.status(404).send({message: 'No hay publicaciones'});
+            }
+            return res.status(200).send({
+                totalItems: total,
+                pages: Math.ceil(total / itemsPerPage),
+                page: page,
+                publications: publications
+            })
+        })
+    }).catch(err => {
+        return res.status(500).send({message: 'Error devolver seguimiento'});
+    })
+
+}
+
+function getPublication(req, res){
+    var publicationId = req.params.id;
+
+    Publication.findById(publicationId, (err, publication) => {
+        if(err) return res.status(500).send({message: "error al guardar publicacion"});
+        if(publication){
+            return res.status(200).send({publication: publication});
+        } else {
+            return res.status(404).send("La publicación no ha podido ser Encontrada. Intente nuevamente");
+        }
+    });
+}
+
+
+function deletePublication(req, res){
+    var params = req.body;
+    var userId = req.user.sub;
+    var PublicationId = req.params.id;
+    
+    
+
+    Publication.find({'_id': PublicationId, user: userId}).remove(err => {
+        if(err) return res.status(500).send({message: "error al dejar de seguir"});
+        return res.status(200).send({message: 'Deja de seguir'});
+    });
+
+    /*Publication.findByIdAndRemove(PublicationId, (err, publicationRemoved) => {
+        if(err) return res.status(500).send({message: "error al eliminar publicacion"});
+
+        if(publicationRemoved){
+            return res.status(200).send({publication: publicationRemoved});
+        } else {
+            return res.status(404).send("La publicación no ha podido ser Borrada. Intente nuevamente");
+        }
+    })*/
+
+}
+
+function uploadImage(req, res){
+    var publicationId = req.params.id;
+    
+    var publicationVO = req.body;
+    
+
+    if(req.files && req.files.image){
+        var file_path = req.files.image.path;
+        var file_split = file_path.split('\\');
+        console.log(file_split);
+
+        var file_name = file_split[2];
+        console.log(file_name);
+        var extSplit = file_name.split('\.')[1];
+         
+            
+       
+        if(extSplit == 'png' || extSplit == 'jpg' || extSplit == 'jpeg' || extSplit == 'gif'){
+            Publication.findOne({'user': req.user.sub, '_id': publicationId}).exec((err, publicacion) => {
+                if(publicacion){
+                    Publication.findByIdAndUpdate(userId, {image: file_name}, {new: true}, (err, publicationUpdated) => { //{new: true} --> son las opciones de update y con new: true indico que retorne el objeto nuevo
+                        if(err) return res.status(500).send({message: 'Error en la petición'});
+                
+                        if(!publicationUpdated) return res.status(404).send({message: 'Usuario no existe'});
+                
+                        return res.status(200).send({publication: publicationUpdated});//es el objeto original si no se agrega {new: true}
+                    });
+                } else {
+                    return res.status(404).send({message: "No tiene autorización para realizar esta acción."});
+                }
+            });
+            
+        } else {
+            return removeFilesOfUploads(file_path, 'Extension no valida');
+        }
+    } else {
+        return res.status(200).send({message: "No ha cargado archivo"});
+    }
+
+}    
+
+function removeFilesOfUploads(file_path, message){
+    fs.unlink(file_path, (err) => {
+        return res.status(200).send({message});
+    })
+}
+
+function getImageFile(req, res){
+    var imageFile = req.params.imageFile;
+    var pathFile = './uploads/publication/' + imageFile;
+
+    fs.exists(pathFile, (exists) => {
+        if(exists){
+            res.sendFile(path.resolve(pathFile));
+        } else {
+            res.status(200).send({message: 'no existe la imagen'});
+        }
+    });
+}
+
+
+
+/*
 function loginUser(req, res){
     var params = req.body;
     var email = params.email;
@@ -294,28 +398,18 @@ async function getContFollow(userId){
         return handleError(err);
     });
 
-    var publications = await Publication.count({"user": userId}).exec().then(count => {
-        return count;
-    }).catch(err => {
-        return handleError(err);
-    });
-
     return {
         following: following,
-        followed: followed,
-        publications: publications
+        followed: followed
     };
 }
-
+*/
 module.exports = {
-    fnHome,
-    fnPruebas,
-    saveUser,
-    loginUser,
-    getUser,
-    getUsers,
-    updateUser,
+    
+    savePublication,
+    getPublications,
+    getPublication,
+    deletePublication,
     uploadImage,
-    getImageFile,
-    getCounters
+    getImageFile
 }
