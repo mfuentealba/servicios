@@ -25,27 +25,28 @@ var jwt = require('../services/jwt');
 function saveMessage(req, res){
     var params = req.body;
     
-    if(!params.text) return res.status(200).send({
+    if(!params.text || !params.receiver) return res.status(200).send({
         message: 'Completar campos requeridos'
     });
-    var publicationVO = new Publication();
-    publicationVO.text = params.text;
-    publicationVO.file = null;
-    publicationVO.user = req.user.sub;
-    publicationVO.created_at = moment().unix();
+    var messageVO = new Message();
+    messageVO.emmitter = req.user.sub;
+    messageVO.receiver = params.receiver;
+    messageVO.text = params.text;
+    messageVO.created_at = moment().unix();
     
-    publicationVO.save((err, publicationStore) => {
+    messageVO.save((err, messageStore) => {
         if(err) return res.status(500).send({message: "error al guardar publicacion"});
-        if(publicationStore){
-            res.status(200).send({publication: publicationStore});
+        if(messageStore){
+            return res.status(200).send({message: messageStore});
         } else {
-            res.status(404).send("La publicación no ha podido ser guardada. Intente nuevamente");
+            return  res.status(404).send("La publicación no ha podido ser guardada. Intente nuevamente");
         }
     })   
 }
 
 
-function getPublications(req, res){
+function getReceiverMessage(req, res){
+    var userId = req.user.sub;
     var page = 1;
     if(req.params.page){
         page = req.params.page;
@@ -53,28 +54,43 @@ function getPublications(req, res){
 
     var itemsPerPage = 4;
 
-    Follow.find({user: req.user.sub}).populate('followed').exec().then((follows) => {
-        var followsClean = [];
-        follows.forEach((follow) => {
-            followsClean.push(follow.followed);
+    Message.find({receiver: userId}).populate('emitter receiver', 'name surname image nick _id').paginate(page, itemsPerPage, (err, message, total) => {
+        if(err) return res.status(500).send({message: "error al guardar publicacion"});
+        if(!message) return res.status(404).send({message: 'mensajes no existen'});
+
+        return res.status(200).send({
+            total,
+            message,
+            pages: Math.ceil(total / itemsPerPage)
         });
-        Publication.find({user: {"$in": followsClean}}).sort('-created_at').populate('user').paginate(page, itemsPerPage, (err, publications, total) => {
-            if(err) return res.status(500).send({message: 'Error devolver publicaciones'});
-            if(!publications || publications.length < 1){
-                return res.status(404).send({message: 'No hay publicaciones'});
-            }
-            return res.status(200).send({
-                totalItems: total,
-                pages: Math.ceil(total / itemsPerPage),
-                page: page,
-                publications: publications
-            })
-        })
-    }).catch(err => {
-        return res.status(500).send({message: 'Error devolver seguimiento'});
-    })
+    });
 
 }
+
+function getEmitMessage(req, res){
+    var userId = req.user.sub;
+    var page = 1;
+    if(req.params.page){
+        page = req.params.page;
+    }
+
+    var itemsPerPage = 4;
+
+    Message.find({emitter: userId}).populate('emitter', 'name surname image nick _id').paginate(page, itemsPerPage, (err, message, total) => {
+        if(err) return res.status(500).send({message: "error al guardar publicacion"});
+        if(!message) return res.status(404).send({message: 'mensajes no existen'});
+
+        return res.status(200).send({
+            total,
+            message,
+            pages: Math.ceil(total / itemsPerPage)
+        });
+    });
+
+}
+
+
+
 
 function getPublication(req, res){
     var publicationId = req.params.id;
@@ -414,5 +430,7 @@ async function getContFollow(userId){
 */
 module.exports = {
     
-    saveMessage
+    saveMessage,
+    getReceiverMessage,
+    getEmitMessage
 }
