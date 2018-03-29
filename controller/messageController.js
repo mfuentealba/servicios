@@ -33,6 +33,7 @@ function saveMessage(req, res){
     messageVO.receiver = params.receiver;
     messageVO.text = params.text;
     messageVO.created_at = moment().unix();
+    messageVO.viewed = 'false';
     
     messageVO.save((err, messageStore) => {
         if(err) return res.status(500).send({message: "error al guardar publicacion"});
@@ -86,6 +87,24 @@ function getEmitMessage(req, res){
             pages: Math.ceil(total / itemsPerPage)
         });
     });
+
+}
+
+
+function getUnviewedMessages(req, res){
+    var userId = req.user.sub;
+    
+    
+    Message.count({receiver: userId, viewed: 'false'}).exec((err, count) => {
+        if(err) return res.status(500).send({message: "error al guardar publicacion"});
+        //if(!messages) return res.status(404).send({message: 'mensajes no existen'});
+
+        return res.status(200).send({
+            'unviewed': count
+        });
+    }) 
+        
+    
 
 }
 
@@ -323,8 +342,8 @@ async function followUserIds(userId){
     }
 
 }
-
-function updateUser(req, res){
+*/
+function setViewedMessages(req, res){
     var userId = req.params.id;
     var userVO = req.body;
     delete userVO.password;
@@ -333,104 +352,25 @@ function updateUser(req, res){
         return res.status(500).send({message: 'No autorizado'});
     }
 
-    User.findByIdAndUpdate(userId, userVO, {new: true}, (err, userUpdated) => { //{new: true} --> son las opciones de update y con new: true indico que retorne el objeto nuevo
+    Message.update({receiver: userId, viewed: 'false'}, {viewed: 'true'}, {multi: true}, (err, messagesUpdated) => { //{new: true} --> son las opciones de update y con new: true indico que retorne el objeto nuevo
         if(err) return res.status(500).send({message: 'Error en la petición'});
 
-        if(!userUpdated) return res.status(404).send({message: 'Usuario no existe'});
+        
 
-        return res.status(200).send({user: userUpdated});//es el objeto original si no se agrega {new: true}
+        return res.status(200).send({
+            messages: messagesUpdated
+        });//es el objeto original si no se agrega {new: true}
         
     });
 }
 
 
-function uploadImage(req, res){
-    var userId = req.params.id;
-    
-    var userVO = req.body;
-    delete userVO.password;
 
-    if(req.files && req.files.image){
-        var file_path = req.files.image.path;
-        var file_split = file_path.split('\\');
-        console.log(file_split);
-
-        var file_name = file_split[2];
-        console.log(file_name);
-        var extSplit = file_name.split('\.')[1];
-        if(userId != req.user.sub){
-            return removeFilesOfUploads(file_path, 'Archivo no cargado');
-            
-            
-        }
-        if(extSplit == 'png' || extSplit == 'jpg' || extSplit == 'jpeg' || extSplit == 'gif'){
-            User.findByIdAndUpdate(userId, {image: file_name}, {new: true}, (err, userUpdated) => { //{new: true} --> son las opciones de update y con new: true indico que retorne el objeto nuevo
-                if(err) return res.status(500).send({message: 'Error en la petición'});
-        
-                if(!userUpdated) return res.status(404).send({message: 'Usuario no existe'});
-        
-                return res.status(200).send({user: userUpdated});//es el objeto original si no se agrega {new: true}
-            });
-        } else {
-            return removeFilesOfUploads(file_path, 'Extension no valida');
-        }
-    } else {
-        return res.status(200).send({message: "No ha cargado archivo"});
-    }
-
-}    
-
-function removeFilesOfUploads(file_path, message){
-    fs.unlink(file_path, (err) => {
-        return res.status(200).send({message});
-    })
-}
-
-function getImageFile(req, res){
-    var imageFile = req.params.imageFile;
-    var pathFile = './uploads/users/' + imageFile;
-
-    fs.exists(pathFile, (exists) => {
-        if(exists){
-            res.sendFile(path.resolve(pathFile));
-        } else {
-            res.status(200).send({message: 'no existe la imagen'});
-        }
-    });
-}
-
-function getCounters(req, res){
-    var userId = req.user.sub;
-    if(req.params.id){
-        userId = req.params.id;
-    } 
-    getContFollow(userId).then((value) => {
-        return res.status(200).send(value);
-    }).catch((err) => {return handleError(err);});
-}
-
-async function getContFollow(userId){
-    var following = await Follow.count({'user': userId}).exec().then(count => {
-        return count;
-    }).catch(err => {
-        return handleError(err);
-    });
-
-    var followed = await Follow.count({'followed': userId}).exec().then(count => {
-        return count;
-    }).catch(err => {
-        return handleError(err);
-    });
-
-    return {
-        following: following,
-        followed: followed
-    };
-}
-*/
 module.exports = {
     
     saveMessage,
     getReceiverMessage,
-    getEmitMessage
+    getEmitMessage,
+    getUnviewedMessages,
+    setViewedMessages
 }
