@@ -204,15 +204,28 @@ function updateUser(req, res){
     if(userId != req.user.sub){
         return res.status(500).send({message: 'No autorizado'});
     }
+    User.find({$or: [
+        {email: userVO.email.toLowerCase()},
+        {nick: userVO.nick.toLowerCase()}
+    ]}).exec().then(users => {
+        var user_isset = false;
+        users.forEach(user => {
+            if(user && user._id != userId) user_isset = true;
+        });
+        if(user_isset) return res.status(404).send({message: 'Los datos ya estan en uso'});
+        User.findByIdAndUpdate(userId, userVO, {new: true}, (err, userUpdated) => { //{new: true} --> son las opciones de update y con new: true indico que retorne el objeto nuevo
+            if(err) return res.status(500).send({message: 'Error en la petición'});
 
-    User.findByIdAndUpdate(userId, userVO, {new: true}, (err, userUpdated) => { //{new: true} --> son las opciones de update y con new: true indico que retorne el objeto nuevo
-        if(err) return res.status(500).send({message: 'Error en la petición'});
+            if(!userUpdated) return res.status(404).send({message: 'Usuario no existe'});
 
-        if(!userUpdated) return res.status(404).send({message: 'Usuario no existe'});
+            return res.status(200).send({user: userUpdated});//es el objeto original si no se agrega {new: true}
+            
+        });
 
-        return res.status(200).send({user: userUpdated});//es el objeto original si no se agrega {new: true}
-        
-    });
+    }).catch(err => {
+
+    })
+   
 }
 
 
