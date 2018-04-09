@@ -140,7 +140,7 @@ async function followThisUser(identityUserId, userId){
 }
 
 function getUsers(req, res){
-    var identityUserId = req.user.id;//es el id del usuario logeado que lo saco del middleware md_auth...
+    var identityUserId = req.user.sub;//es el id del usuario logueado que lo saco del middleware md_auth...
     var page = 1;
     if(req.params.page){
         page = req.params.page;
@@ -177,7 +177,7 @@ async function followUserIds(userId){
 
     });
 
-    var followingClean = ['asdasdasda'];
+    var followingClean = [];
 
     following.forEach((follow) => {
         followingClean.push(follow.followed)
