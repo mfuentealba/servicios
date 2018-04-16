@@ -106,7 +106,7 @@ function getUser(req, res){
 
         
 
-        followThisUser(req.params.id, userId).then((value) => {
+        followThisUser(req.user.sub, userId).then((value) => {
             return res.status(200).send({
                 user,
                 following: value.following,
