@@ -72,41 +72,22 @@ function getPublications(req, res){
 
 }
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 60283921928f776dd0d39e90c165779b4770058d
 function getPublicationsUser(req, res){
     var page = 1;
     if(req.params.page){
         page = req.params.page;
     }
-<<<<<<< HEAD
-
-    var user_id = req.user.sub;
-
-    if(req.params.userId){
-        user_id = req.params.userId;
-    }
-
-
-=======
     var user = req.user.sub;
 
     if(req.params.user){
         user = req.params.user;
     }
 
->>>>>>> 60283921928f776dd0d39e90c165779b4770058d
     var itemsPerPage = 4;
 
     
 
-<<<<<<< HEAD
-    Publication.find({user: user_id}).sort('-created_at').populate('user').paginate(page, itemsPerPage, (err, publications, total) => {
-=======
     Publication.find({user: user}).sort('-created_at').populate('user').paginate(page, itemsPerPage, (err, publications, total) => {
->>>>>>> 60283921928f776dd0d39e90c165779b4770058d
         if(err) return res.status(500).send({message: 'Error devolver publicaciones'});
         if(!publications){
             return res.status(404).send({message: 'No hay publicaciones'});
