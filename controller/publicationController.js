@@ -164,7 +164,7 @@ function uploadImage(req, res){
         if(extSplit == 'png' || extSplit == 'jpg' || extSplit == 'jpeg' || extSplit == 'gif'){
             Publication.findOne({'user': req.user.sub, '_id': publicationId}).exec((err, publicacion) => {
                 if(publicacion){
-                    Publication.findByIdAndUpdate(userId, {image: file_name}, {new: true}, (err, publicationUpdated) => { //{new: true} --> son las opciones de update y con new: true indico que retorne el objeto nuevo
+                    Publication.findByIdAndUpdate(publicationId, {file: file_name}, {new: true}, (err, publicationUpdated) => { //{new: true} --> son las opciones de update y con new: true indico que retorne el objeto nuevo
                         if(err) return res.status(500).send({message: 'Error en la petición'});
                 
                         if(!publicationUpdated) return res.status(404).send({message: 'Usuario no existe'});
@@ -193,7 +193,7 @@ function removeFilesOfUploads(file_path, message){
 
 function getImageFile(req, res){
     var imageFile = req.params.imageFile;
-    var pathFile = './uploads/publication/' + imageFile;
+    var pathFile = './uploads/publications/' + imageFile;
 
     fs.exists(pathFile, (exists) => {
         if(exists){
