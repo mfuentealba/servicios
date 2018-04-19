@@ -58,9 +58,19 @@ function getFollowingUsers(req, res){
     Follow.find({user: userId}).populate({path: 'followed'}).paginate(page, itemsPerPage, (err, follows, total) => {
         if(err) return res.status(500).send({message: 'Error en la petición'});
         if(!follows) return res.status(404).send({message: 'no existen usuarios seguidos'});
-        return res.status(200).send({
-            follows, total, pages: Math.ceil(total / itemsPerPage)
-        });
+
+        followUserIds(req.user.sub).then((value) => {
+            return res.status(200).send({
+                follows, 
+                total,
+                usersFollowing: value.following,
+                usersFollowMe: value.followed, 
+                pages: Math.ceil(total / itemsPerPage)
+            });
+        })
+        
+
+        
     })
 }
 
@@ -105,6 +115,40 @@ function getMyFollow(req, res){
     })
 }
 
+
+async function followUserIds(userId){
+    var following = await Follow.find({"user": userId}).select({'_id': 0, '__v':0, 'user': 0}).exec().then(follows => {
+        
+        return follows;
+    }).catch(err => {
+
+    });
+
+    var followed = await Follow.find({"followed": userId}).select({'_id': 0, '__v':0, 'followed': 0}).exec().then(follows => {
+        
+        return follows;
+    }).catch(err => {
+
+    });
+
+    var followingClean = [];
+
+    following.forEach((follow) => {
+        followingClean.push(follow.followed)
+    });
+
+    var followedClean = [];
+
+    followed.forEach((follow) => {
+        followedClean.push(follow.user)
+    });
+
+    return {
+        following:followingClean,
+        followed: followedClean
+    }
+
+}
 
 
 
