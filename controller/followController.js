@@ -91,9 +91,15 @@ function getFollowedUsers(req, res){
     Follow.find({followed: userId}).populate('user').paginate(page, itemsPerPage, (err, follows, total) => {//{path: 'followed'}
         if(err) return res.status(500).send({message: 'Error en la petición'});
         if(!follows || follows.length < 1) return res.status(404).send({message: 'no te sigue nadie'});
-        return res.status(200).send({
-            follows, total, pages: Math.ceil(total / itemsPerPage)
-        });
+        followUserIds(req.user.sub).then((value) => {
+            return res.status(200).send({
+                follows, 
+                total,
+                usersFollowing: value.following,
+                usersFollowMe: value.followed, 
+                pages: Math.ceil(total / itemsPerPage)
+            });
+        })
     })
 }
 
