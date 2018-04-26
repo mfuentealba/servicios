@@ -29,7 +29,7 @@ function saveMessage(req, res){
         message: 'Completar campos requeridos'
     });
     var messageVO = new Message();
-    messageVO.emmitter = req.user.sub;
+    messageVO.emitter = req.user.sub;
     messageVO.receiver = params.receiver;
     messageVO.text = params.text;
     messageVO.created_at = moment().unix();
@@ -77,13 +77,13 @@ function getEmitMessage(req, res){
 
     var itemsPerPage = 4;
 
-    Message.find({emitter: userId}).populate('emitter', 'name surname image nick _id').paginate(page, itemsPerPage, (err, message, total) => {
+    Message.find({emitter: userId}).populate('emitter receiver', 'name surname image nick _id').paginate(page, itemsPerPage, (err, messages, total) => {
         if(err) return res.status(500).send({message: "error al guardar publicacion"});
-        if(!message) return res.status(404).send({message: 'mensajes no existen'});
+        if(!messages) return res.status(404).send({message: 'mensajes no existen'});
 
         return res.status(200).send({
             total,
-            message,
+            messages,
             pages: Math.ceil(total / itemsPerPage)
         });
     });
